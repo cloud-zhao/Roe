@@ -1,2 +1,2 @@
-# myhadoop_monitor
-Perl monitor hadoop in all directions; 
+# Roe
+Perl ssh monitor in all directions and control manager linuxlike system; 
