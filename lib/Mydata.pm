@@ -5,56 +5,76 @@ use base qw(Exporter);
 our @EXPORT=qw();
 
 use DBI;
+use Myconf;
 
-use constant SQLITE_SOURCE =>'DBI:SQLite:dbname=localdb.db';
+#use constant SQLITE_SOURCE =>"DBI:SQLite:dbname=../data/mydata.db";
+
+my $database=$roe_conf{database};
+my $datatype=$roe_conf{datatype};
 
 sub new{
 	my $class=shift;
 	my $self;
-	my %mysqlinfo=@_;
-	if(!(defined %mysqlinfo){
-		$self->{dbh}=DBI->connect(SQLITE_SOURCE,'','') or die "connect fail\n";
-	}elsif(defined %mysqlinfo){
-		my %mysqlinfo=@_;
-		my $mysql_source="DBI:mysql:database=$mysqlinfo{database};host=$mysqlinfo{host}";
-		$self->{dbh}=DBI->connect($mysql_source,$mysqlinfo{user},$mysqlinfo{password}) or
-		die "connect $mysqlinfo{host} 3306 failed\n";
+	if((! $datatype) || ($datatype eq "sqlite")){
+		my $sqlite_source="DBI:SQLite:dbname=$database";
+		$self->{dbh}=DBI->connect($sqlite_source,'','') or die "$DBI::errstr\n";
+	}elsif($datatype eq "mysql"){
+		my ($datahost,$dataname)=split '::',$database;
+		my $datauser=$roe_conf{datauser};
+		my $datapass=$roe_conf{datapass};
+		my $mysql_source="DBI:mysql:database=$dataname;host=$datahost";
+		$self->{dbh}=DBI->connect($mysql_source,$datauser,$datapass) or
+		die "$DBI::errstr\n";
 	}
 	return bless $self,$class;
 }
 
+#create_table()
 sub create_table{
 	my $self=shift;
-	my %tableinfo=@_;
-	my $createinfo;
-	for my $tablename (keys %tableinfo){
-		$createinfo{$tablename}="create table $tablename(";
-			for my $colname (keys %{$tableinfo{$tablename}}){
-				$createinfo{$tablename}.="$colname $tableinfo{$tablename}->{$colname}[0],";
-			}
+	my $table_name=shift;
+	my %columns=@_;
+	my $sql="create table $table_name (";
+
+	for my $col (keys %columns){
+		$sql.="$col $columns{$col},";
 	}
-	for my $table (keys %$tableinfo){
-		$self->{dbh}->do($table);
-	}
+	chop $sql;
+	$sql.=");";
+	print "$sql\n";
+
+	$self->{dbh}->do($sql);
+	die "$DBI::errstr\n" if $self->{dbh}->err;
+
 	return 0;
 }
 
 sub insert_data{
 	my $self=shift;
-	my %tableinfo=@_;
-	for my $tablename (keys %tableinfo){
-		my $insert="insert into $tablename set";
-		for keys $colname (keys %{$tableinfo{$tablename}}){
-			$insert.=" $colname=$tableinfo{$tablename}->{$colname},";
-		} 
-		chop $insert;
-		$self->{dbh}->do($insert);
+	my $table_name=shift;
+	my %values=@_;
+	my $sql="insert into $table_name ";
+	my ($sql_col,$sql_val);
+	for(keys %values){
+		$sql_col.="$_,";
+		$sql_val.=qq/"$values{$_}",/;
 	}
+	chop $sql_col;
+	chop $sql_val;
+	$sql.="($sql_col) ($sql_val);";
+	print "$sql\n";
+
+	$self->{dbh}->do($sql);
+	die "$DBI::err\n" if $self->{dbh}->err;
+	return 0;
 }
 
 sub select_data{
 	my $self=shift;
-	my $sql=shift;
+	my $table_name=shift;
+	my $where_val=pop;
+	my $where_id=pop;
+	my $sql="select ".join ','."from $table_name where $where_id=$where_val;";
 	my $select=$self->{dbh}->selectall_arrayref($sql);
 	return $select;
 }
@@ -62,5 +82,5 @@ sub select_data{
 sub disconnect{
 	my $self=shift;
 	$self->{dbh}->disconnect;
-	$self=undef;
+	return 0;
 }
