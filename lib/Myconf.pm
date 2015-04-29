@@ -9,12 +9,27 @@ our %roe_conf;
 my $conf_file="../conf/roe.conf";
 $conf_file="../conf/roe.conf.default" unless -f $conf_file ;
 
+
+%roe_conf=(
+	database=>"../data/mydata.db",
+	datatype=>"sqlite",
+	datauser=>"root",
+	datapass=>"ccindex",
+	hostfile=>"../conf/host.conf",
+	monitor_cpu=>1,
+	monitor_disk=>1,
+	monitor_load=>1,
+	monitor_mem=>1,
+	monitor_net=>1
+);
+my $golable_conf=\%roe_conf;
+
 =pod
 sub new{
 	my $class=shift;
 	my $self={};
 	$self->{conf}={};
-	bless $self,$class;
+	return bless $self,$class;
 }
 =cut
 
@@ -59,18 +74,6 @@ sub write_conf{
 
 sub _check_conf{
 	my $golable_key=shift;
-	my $golable_conf={
-		database=>"../data/mydata.db",
-		datatype=>"sqlite",
-		user=>"root",
-		key=>"/root/.ssh/id_rsa",
-		publickey=>"/root/.ssh/id_rsa.pub",
-		monitor_cpu=>1,
-		monitor_disk=>1,
-		monitor_load=>1,
-		monitor_mem=>1,
-		monitor_net=>1
-	};
 	unless(exists $golable_conf->{$golable_key}){
 		print "Configure file ".'"'.$conf_file.'"';
 		print " unrecognized option ".'"'.$golable_key.'"'."\n";

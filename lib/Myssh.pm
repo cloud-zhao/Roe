@@ -5,104 +5,58 @@ use warnings;
 use base qw(Exporter);
 our @EXPORT=qw(new cmd);
 
-use Net::SSH2;
+use Net::OpenSSH;
+use Mydata;
+use Myconf;
 
 sub new{
 	my $class=shift;
-	my $self;
-	my ($ip,$port,$user,$password)=@_;
-	$self->{"host"}{"ip"}=$ip || return -1;
-	$self->{"host"}{"$port"}=$port || 22;
-	$self->{"host"}{"$user"}=$user || root;
-	$self->{"host"}{"password"}=$password || "0x0000";
-	$self->{"ssh2"}=Net::SSH2->new();
-	bless $self,$class;
+	my $self={};
+	my ($ip,$user,$pass,$key)=@_;
+	unless(defined $ip){
+		print "The host is not specified.\n";
+		return 1;
+	}
+	$user ||= "root";
+	$pass ||= "";
+	$key ||= "/root/.ssh/id_rsa";
+
+	$self->{ssh}=Net::OpenSSH->new($ip,user=>$user,password=>$pass,key_path=>$key);
+	if($self->{ssh}->error){
+		die "Connection SSH $ip failed. ".$self->{ssh}->error;
+	}
+
+	return bless $self,$class;
 }
 
-sub cmd{
+sub open_stat{
 	my $self=shift;
-	my $command=shift || 'echo "unkonw command"';
-	my $host=$self->{"host"};
-	my $ssh2=$self->{"ssh2"};
-	$ssh2->connect($host,Timeout=>60) or die "connect fail\n";
-	if($host->{"password"} != "0x0000"){
-		my $chan=_auth_password($host,$ssh2);
-		$chan->exec("$command");
-	}else{
-		my $keyputh= $host->{"user"} == "root" ? "/root/.ssh" : "/home/".$host->{"user"}."/.ssh";
-		my $chan=_auth_key($host,$ssh2,$keyputh);
-		$chan->exec("$command");
+	my $file=shift;
+	my ($out,$pid)=$self->{ssh}->pipe_out("cat $file") or 
+		die "pipe_out method failed: ". $self->{ssh}->error;
+	return $out;
+}
+
+sub get_host{
+	my $self=shift;
+	my $hostname=$self->{ssh}->capture("hostname -s");
+	chomp $hostname;
+	if($self->{ssh}->error){
+		die "Get host failed. ".$self->{ssh}->error;
 	}
+	return $hostname;
 }
 
-sub _auth_key{
-	my $host=shift;
-	my ($ssh2,$keyputh)=@_;
-	if($ssh2->auth_publickey($host->{"user"},$keyputh."/id_rsa.pub",$keyputh."/id_rsa")){
-		my $chan=$ssh2->channel();
-		return \$chan;
-	}else{
-		return -1
+sub run_cmd{
+	my $self=shift;
+	my $cmd=shift;
+	$cmd ||= return 1;
+	my ($out,$err)=$self->{ssh}->capture2("$cmd");
+	if($self->{ssh}->error){
+		die "Remote find command failed: ".$self->{ssh}->error;
 	}
+	print $out;
+	return 0;
 }
 
-sub _auth_password{
-	my $host=shift;
-	my ($ssh2)=@_;
-	if($ssh2->auth_password($host->{"user"},$host->{"password"})){
-		my $chan=$ssh2->channel();
-		return \$chan;
-	}else{return -1}
-}
-
-
-
-=POD
-    my ($stdout, $stderr, $exitcode) = cmd($ssh, $cmd, sub {
-            my ($stderr, $chan) = @_;
-            if ($stderr =~ /Password for '(.+)':/i) {
-                print $chan "$passwd\n";
-            }
-        });
-
-
-
-sub cmd {
-    my ($ssh, $cmd, $callback) = @_;
-    my $timeout = 250;
-    my $bufsize = 4096;
-    
-    $ssh->blocking(1);
-    my $chan=$ssh->channel();
-    $chan->exec($cmd);
-    
-    my $poll = [{ handle => $chan, events => ['in','ext'] }];
-    
-    my %std=();
-    $ssh->blocking( 0 );
-    while(!$chan->eof) {
-        $ssh->poll($timeout, $poll);
-        
-        my( $n, $buf );
-        foreach my $ev (qw(in ext)) {
-            next unless $poll->[0]{revents}{$ev};
-            
-            
-            if( $n = $chan->read($buf, $bufsize, $ev eq 'ext') ) {
-                $std{$ev} .= $buf;
-            }
-            if (ref($callback) eq 'CODE' && $std{$ev}) {
-                $callback->($std{$ev}, $chan, $ev eq 'ext' ?
-                                                  'stderr' : 'stdout');
-            }
-        }
-    }
-    $chan->wait_closed(); #not really needed but cleaner
-    my $exit = $chan->exit_status();
-    $chan->close(); #not really needed but cleaner
-    $ssh->blocking(1); # set it back for sanity (future calls)
-    return ($std{in}, $std{ext}, $exit);
-}
-
-=cut
-
+1;
