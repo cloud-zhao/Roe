@@ -1,4 +1,4 @@
-package Mytool;
+package Mytools;
 
 use strict;
 use warnings;
