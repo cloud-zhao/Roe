@@ -30,6 +30,8 @@ sub now_time{
 
 sub write_file{
 	my ($buff,$filename)=@_;
-	open $file,">>$filename" or die "$filename write fail\n";
+	open my $file,">>$filename" or die "$filename write fail\n";
 	print $file "$buff\n";
+	close $file;
+	return 0;
 }
