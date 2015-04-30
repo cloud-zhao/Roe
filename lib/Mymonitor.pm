@@ -91,7 +91,7 @@ sub _cpu_analyse{
 	my $time2=$data->select_data("cpu_stat","cpu_num","tt","us","sy","id",{up_time=>$now_time,hostname=>$hn});
 
 	if((! @$time1) && ($time1->[0][1]>$time2->[0][1])){
-		for(my $i=0;$i<@time2;$i++){
+		for(my $i=0;$i<@$time2;$i++){
 			$id=$time2->[$i][4]/$time2->[$i][1]*100;
 			$us=$time2->[$i][2]/$time2->[$i][1]*100;
 			$sy=$time2->[$i][3]/$time2->[$i][1]*100;
@@ -100,7 +100,7 @@ sub _cpu_analyse{
 		return 0;
 	}
 	
-	for(my $i=0;$i<@time2;$i++){
+	for(my $i=0;$i<@$time2;$i++){
 		$id=($time2->[$i][4]-$time1->[$i][4])/($time2->[$i][1]-$time1->[$i][1])*100;
 		$us=($time2->[$i][2]-$time1->[$i][2])/($time2->[$i][1]-$time1->[$i][1])*100;
 		$sy=($time2->[$i][3]-$time1->[$i][3])/($time2->[$i][1]-$time1->[$i][1])*100;
