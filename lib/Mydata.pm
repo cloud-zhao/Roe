@@ -2,7 +2,7 @@ package Mydata;
 use strict;
 use warnings;
 use base qw(Exporter);
-our @EXPORT=qw(new create_table insert_col insert_data update_data select_data disconnect);
+our @EXPORT=qw(new create_table insert_col insert_data update_data select_data select_row disconnect);
 
 use DBI;
 use Myconf;
@@ -93,13 +93,13 @@ sub insert_data{
 sub select_data{
 	my $self=shift;
 	my $table_name=shift;
-	ref($_[-1]) eq "HASH" ? my $where=pop : my $where=0;
+	my $where= ref($_[-1]) eq "HASH" ? pop : 0;
 	my $item=join ',';
 	my $sql="select $item from $table_name ";
 	if($where){
 		my @wn=%$where;
 		my $cn;
-		if((@wn>1) && (@wm%2 == 0)){
+		if((@wn>1) && (@wn%2 == 0)){
 			my $kw="where";
 			for(keys %$where){
 				if($where->{$_}=~/%/){
@@ -120,6 +120,36 @@ sub select_data{
 	my $select=$self->{dbh}->selectall_arrayref($sql);
 	return $select;
 }
+
+sub select_row{
+	my $self=shift;
+	my $table_name=shift;
+	my $where= ref($_[-1]) eq "HASH" ? pop : 0;
+	my $item=join ',';
+	my $sql="select $item from $table_name ";
+	if($where){
+		my @wn=%$where;
+		my $cn;
+		if((@wn>1) && (@wn%2 == 0)){
+			my $kw="where";
+			for(keys %$where){
+				$cn.=qq/ $_="$where->{$_}" and/;
+			}
+			$cn=~s/and$//;
+			$sql.=$kw.$cn.";";
+		}else{
+			print "Parameter error.\n";
+			return 1;
+		}
+	}else{
+		$sql.=";";
+	}
+
+	my $select=$self->{dbh}->selectrow_arrayref($sql);
+	return $select;
+}
+
+=pod
 
 =pod
 sub read_file{
