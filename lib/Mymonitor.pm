@@ -10,11 +10,7 @@ use Myssh;
 use Mytools;
 
 my $host_file=$roe_conf{hostfile};
-my $data=Mydata->new();
-my $now_time;
-my $past_time;
-my $ssh={};
-my $hn=0;
+my ($data,$now_time,$past_time,$ssh,$hn);
 
 sub host_connect{
 	my $host={};
@@ -23,13 +19,13 @@ sub host_connect{
 		open my $fp,"<$host_file" or die "Cannot open $host_file.\n";
 		while(<$fp>){
 			chomp;
-			@{$host->{$_}}=$data->select_data("hostinfo",@$col,{hostname=>$_});
+			$host->{$_}=$data->select_row("hostinfo",@$col,{hostname=>$_});
 		}
 		close $fp;
 	}else{
-		my @all_host=$data->select_data("hostinfo","hostname",@$col);
-		for(my i=0;i<@all_host;i++){
-			$host->{$all_host[$i++]}=[$all_host[$i++],$all_host[$i++],$all_host[$i]];
+		my $all_host=$data->select_data("hostinfo","hostname",@$col);
+		for(@$all_host){
+			$host->{$_->[0]}=[$_->[1],$_->[2],$_->[3]];
 		}
 	}
 
@@ -43,8 +39,10 @@ sub host_connect{
 }
 
 sub main{
+	$data=Mydata->new();
 	$now_time=now_time();
 	$past_time=past_time($now_time,{m=>10});
+
 	for $hn (keys %$ssh){
 		cpu();
 		io();
@@ -56,8 +54,11 @@ sub main{
 		server();
 		process();
 	}
+
+	$data->disconnect();
+	$data=undef;
 	$ssh={};
-	$hn=0;
+	$hn=undef;
 }
 
 sub cpu{
@@ -86,26 +87,24 @@ sub _cpu_get{
 
 sub _cpu_analyse{
 	my ($id,$us,$sy);
-	my @time1=$data->select_data("cpu_stat","cpu_num","tt","us","sy","id",{up_time=>$past_time,hostname=>$hn});
-	my @time2=$data->select_data("cpu_stat","cpu_num","tt","us","sy","id",{up_time=>$now_time,hostname=>$hn});
+	my $time1=$data->select_data("cpu_stat","cpu_num","tt","us","sy","id",{up_time=>$past_time,hostname=>$hn});
+	my $time2=$data->select_data("cpu_stat","cpu_num","tt","us","sy","id",{up_time=>$now_time,hostname=>$hn});
 
-	if((! @time1) && ($time1[1]>$time2[1])){
+	if((! @$time1) && ($time1->[0][1]>$time2->[0][1])){
 		for(my $i=0;$i<@time2;$i++){
-			$id=$time2[$i+4]/$time2[$i+1]*100;
-			$us=$time2[$i+2]/$time2[$i+1]*100;
-			$sy=$time2[$i+3]/$time2[$i+1]*100;
-			$data->insert_data("cpu_rate",$hn,$t2,$time2[$i],$us,$sy,$id,0);
-			$i+=4;
+			$id=$time2->[$i][4]/$time2->[$i][1]*100;
+			$us=$time2->[$i][2]/$time2->[$i][1]*100;
+			$sy=$time2->[$i][3]/$time2->[$i][1]*100;
+			$data->insert_data("cpu_rate",$hn,$t2,$time2->[$i][0],$us,$sy,$id,0);
 		}
 		return 0;
 	}
 	
 	for(my $i=0;$i<@time2;$i++){
-		$id=($time2[$i+4]-$time1[$i+4])/($time2[$i+1]-$time1[$i+1])*100;
-		$us=($time2[$i+2]-$time1[$i+2])/($time2[$i+1]-$time1[$i+1])*100;
-		$sy=($time2[$i+3]-$time1[$i+3])/($time2[$i+1]-$time1[$i+1])*100;
-		$data->insert_data("cpu_rate",$hn,$now_time,$time2[$i],$us,$sy,$id,0);
-		$i+=4;
+		$id=($time2->[$i][4]-$time1->[$i][4])/($time2->[$i][1]-$time1->[$i][1])*100;
+		$us=($time2->[$i][2]-$time1->[$i][2])/($time2->[$i][1]-$time1->[$i][1])*100;
+		$sy=($time2->[$i][3]-$time1->[$i][3])/($time2->[$i][1]-$time1->[$i][1])*100;
+		$data->insert_data("cpu_rate",$hn,$now_time,$time2->[$i][0],$us,$sy,$id,0);
 	}
 	return 0;
 }
