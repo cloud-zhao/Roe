@@ -11,6 +11,8 @@ use Mytools;
 
 my $host_file=$roe_conf{hostfile};
 my $data=Mydata->new();
+my $now_time;
+my $past_time;
 my $ssh={};
 my $hn=0;
 
@@ -40,7 +42,9 @@ sub host_connect{
 	}
 }
 
-sub mail{
+sub main{
+	$now_time=now_time();
+	$past_time=past_time($now_time,{m=>10});
 	for $hn (keys %$ssh){
 		cpu();
 		io();
@@ -52,6 +56,8 @@ sub mail{
 		server();
 		process();
 	}
+	$ssh={};
+	$hn=0;
 }
 
 sub cpu{
@@ -65,7 +71,6 @@ sub cpu{
 sub _cpu_get{
 	my $file=shift;
 	return 1 if ref($file) ne "GLOB";
-	my $time=now_time();
 	while(<$file>){
 		last if ! /^cpu/;
 		my ($cpu,$us,$nice,$sys,$id,$iowait,
@@ -74,17 +79,15 @@ sub _cpu_get{
 			$irq+$softirq+$st+$guest;
 		@cpu_all=qq($cpu $total_time $us $nice $sys $id
 			$iowait $irq $softirq $st $guest);
-		$data->insert_data("cpu_stat",$hn,$time,@cpu_all);
+		$data->insert_data("cpu_stat",$hn,$now_time,@cpu_all);
 	}
 	return 0;
 }
 
 sub _cpu_analyse{
-	my $t1=now_time(min=>"10");
-	my $t2=now_time();
 	my ($id,$us,$sy);
-	my @time1=$data->select_data("cpu_stat","cpu_num","tt","us","sy","id",{up_time=>$t1,hostname=>$hn});
-	my @time2=$data->select_data("cpu_stat","cpu_num","tt","us","sy","id",{up_time=>$t2,hostname=>$hn});
+	my @time1=$data->select_data("cpu_stat","cpu_num","tt","us","sy","id",{up_time=>$past_time,hostname=>$hn});
+	my @time2=$data->select_data("cpu_stat","cpu_num","tt","us","sy","id",{up_time=>$now_time,hostname=>$hn});
 
 	if((! @time1) && ($time1[1]>$time2[1])){
 		for(my $i=0;$i<@time2;$i++){
@@ -101,7 +104,7 @@ sub _cpu_analyse{
 		$id=($time2[$i+4]-$time1[$i+4])/($time2[$i+1]-$time1[$i+1])*100;
 		$us=($time2[$i+2]-$time1[$i+2])/($time2[$i+1]-$time1[$i+1])*100;
 		$sy=($time2[$i+3]-$time1[$i+3])/($time2[$i+1]-$time1[$i+1])*100;
-		$data->insert_data("cpu_rate",$hn,$t2,$time2[$i],$us,$sy,$id,0);
+		$data->insert_data("cpu_rate",$hn,$now_time,$time2[$i],$us,$sy,$id,0);
 		$i+=4;
 	}
 	return 0;
@@ -121,4 +124,6 @@ sub server{}
 
 sub netlink{}
 
-sub network{};
+sub network{}
+
+1;
