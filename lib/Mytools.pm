@@ -3,7 +3,7 @@ package Mytools;
 use strict;
 use warnings;
 use base qw(Exporter);
-our @EXPORT=qw(taday_date date_diff now_time past_time write_file);
+our @EXPORT=qw(taday_date date_diff now_time past_time write_file send_mail);
 
 use Date::Calc qw(Date_to_Time Time_to_Date);
 
@@ -49,6 +49,25 @@ sub write_file{
 	open my $file,">>$filename" or die "$filename write fail\n";
 	print $file "$buff\n";
 	close $file;
+	return 0;
+}
+
+sub send_mail{
+	my ($ser,$user,$password,$mail_list,$title,$body,)=@_;
+	my $sender=$user;
+
+	my $smtp=Net::SMTP->new($ser);
+	$smtp->auth($user,$password);
+	$smtp->mail($sender);
+	$smtp->to(@$mail_list);
+	$smtp->data;
+	$smtp->datasend("From:$sender\n");
+	$smtp->datasend("Subject:$title\n");
+	$smtp->datasend("\n");
+	$smtp->datasend("$body\n");
+	$smtp->dataend;
+	$smtp->quit;
+	
 	return 0;
 }
 
